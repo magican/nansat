@@ -1345,7 +1345,7 @@ class Nansat(Domain):
     def process(self, opts=None):
         '''Default L2 processing of Nansat object. Overloaded in childs.'''
 
-    def export_band(self, fileName, bandID=1, driver='netCDF'):
+    def export_band(self, fileName, bandList=[1], driver='netCDF'):
         '''Export only one band of the Nansat object
         Get array from the required band
         Create temporary Nansat from the array
@@ -1355,22 +1355,41 @@ class Nansat(Domain):
         ----------
         fileName : str
             name of the output file
-        bandID : int or str, [1]
-            number of name of the band
+        bandList : list of int or string
+            elements of the list are band number or band Name
         driver : str, ['netCDF']
             name of the GDAL Driver (format) to use
 
         '''
-        # get array from self
-        bandArray = self[bandID]
-        # get root, band metadata
-        rootMetadata = self.get_metadata()
-        bandMetadata = self.get_metadata(bandID=bandID)
-        # create temporary nansat
+        # get first array from self
+        firstBand = bandList[0]
+        if type(firstBand) == str:
+            firstBand = self._get_band_number(firstBand)
+        bandArray = self[firstBand]
+        # create temporary Nansat
         tmpNansat = Nansat(domain=self, array=bandArray)
-        # set metadata
+        # if more than 1 Band
+        if len(bandList) > 1:
+            ind = 1
+            for iBand in bandList[1:]:
+                ind += 1
+                if type(iBand) == str:
+                    iBand = self._get_band_number(iBand)
+                # get array from self
+                bandArray = self[iBand]
+                # add band to tmpNansat
+                tmpNansat.add_band(bandID=ind, array=bandArray)
+        # get/set root metadata
+        rootMetadata = self.get_metadata()
         tmpNansat.set_metadata(rootMetadata)
-        tmpNansat.set_metadata(bandMetadata, bandID=1)
+        # get/set band metadata (doing after arrays added for all bands, otherway errors will occure)
+        ind = 0
+        for iBand in bandList:
+            ind += 1
+            if type(iBand) == str:
+                iBand = self._get_band_number(iBand)
+            bandMetadata = self.get_metadata(bandID=iBand)
+            tmpNansat.set_metadata(bandMetadata, bandID=ind)
         # export
         tmpNansat.export(fileName, driver=driver)
 
